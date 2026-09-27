@@ -1,0 +1,232 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Wordle Deluxe</title>
+<style>
+*{box-sizing:border-box}
+body{
+ margin:0;min-height:100vh;background:linear-gradient(135deg,#111827,#1e1b4b);
+ color:#fff;font-family:Arial,sans-serif;display:flex;justify-content:center;
+ align-items:center;padding:20px
+}
+.game{
+ width:430px;max-width:100%;background:rgba(255,255,255,.08);
+ border:1px solid rgba(255,255,255,.15);border-radius:24px;
+ padding:24px;box-shadow:0 20px 60px rgba(0,0,0,.4);text-align:center
+}
+h1{margin:0;font-size:38px;letter-spacing:5px}
+.subtitle{color:#b9bdd0;margin:7px 0 15px}
+.board{display:grid;grid-template-columns:repeat(5,58px);gap:7px;justify-content:center;margin:18px auto}
+.tile{
+ width:58px;height:58px;border:2px solid #4b5065;border-radius:9px;
+ display:flex;align-items:center;justify-content:center;font-size:27px;
+ font-weight:bold;transition:.25s
+}
+.correct{background:#22c55e!important;border-color:#22c55e!important}
+.present{background:#eab308!important;border-color:#eab308!important}
+.wrong{background:#374151!important;border-color:#374151!important}
+.pop{animation:pop .15s ease}
+@keyframes pop{50%{transform:scale(1.12)}}
+.controls{display:flex;gap:8px;justify-content:center;margin:12px 0}
+input{
+ width:170px;padding:12px;border:0;border-radius:10px;font-size:18px;
+ text-align:center;text-transform:uppercase;outline:none
+}
+button{
+ border:0;border-radius:10px;padding:12px 15px;font-weight:bold;
+ cursor:pointer;background:#6366f1;color:white;transition:.2s
+}
+button:hover{transform:translateY(-2px);filter:brightness(1.1)}
+.hint{
+ min-height:42px;background:rgba(255,255,255,.07);border-radius:12px;
+ padding:11px;color:#d7d9e5;margin:12px 0
+}
+.keyboard{display:flex;flex-wrap:wrap;gap:6px;justify-content:center;margin-top:15px}
+.key{
+ min-width:31px;padding:10px 7px;background:#4b5065;border-radius:7px;
+ font-weight:bold;font-size:13px;cursor:pointer
+}
+.key.correct{background:#22c55e}
+.key.present{background:#eab308}
+.key.wrong{background:#20232d}
+.message{font-size:18px;font-weight:bold;min-height:25px;margin:12px}
+.small{font-size:12px;color:#9297aa;margin-top:15px}
+</style>
+</head>
+<body>
+<div class="game">
+<h1>WORDLE</h1>
+<div class="subtitle">DELUXE EDITION</div>
+
+<div id="board" class="board"></div>
+
+<div class="controls">
+<input id="guess" maxlength="5" placeholder="5 LETTERS" autocomplete="off">
+<button onclick="submitGuess()">GUESS</button>
+</div>
+
+<div class="controls">
+<button onclick="giveHint()">💡 HINT</button>
+<button onclick="newGame()">🔄 NEW GAME</button>
+</div>
+
+<div id="hint" class="hint">Need help? Press 💡 HINT.</div>
+<div id="message" class="message"></div>
+<div id="keyboard" class="keyboard"></div>
+<div class="small">6 attempts • Green = correct • Yellow = wrong position</div>
+</div>
+
+<script>
+const words=[
+"APPLE","BEACH","BRAIN","BRAVE","CHAIR","CLOUD","CROWN","DREAM",
+"EARTH","FLAME","GRAPE","HEART","HOUSE","LIGHT","MAGIC","MOUSE",
+"OCEAN","PLANT","QUEEN","ROBOT","SHARK","SMILE","SNAKE","SPACE",
+"STONE","TIGER","TRAIN","WATER","WORLD","YOUTH"
+];
+
+let answer="",row=0,gameOver=false;
+let usedHint=false;
+
+const board=document.getElementById("board");
+const guess=document.getElementById("guess");
+const message=document.getElementById("message");
+const hint=document.getElementById("hint");
+const keyboard=document.getElementById("keyboard");
+
+function setupBoard(){
+ board.innerHTML="";
+ for(let i=0;i<30;i++){
+   const d=document.createElement("div");
+   d.className="tile";
+   board.appendChild(d);
+ }
+}
+
+function setupKeyboard(){
+ keyboard.innerHTML="";
+ "QWERTYUIOPASDFGHJKLZXCVBNM".split("").forEach(letter=>{
+   const k=document.createElement("div");
+   k.className="key";
+   k.textContent=letter;
+   k.onclick=()=>addLetter(letter);
+   k.id="key-"+letter;
+   keyboard.appendChild(k);
+ });
+}
+
+function newGame(){
+ answer=words[Math.floor(Math.random()*words.length)];
+ row=0;gameOver=false;usedHint=false;
+ message.textContent="";
+ hint.textContent="Need help? Press 💡 HINT.";
+ guess.value="";
+ setupBoard();
+ setupKeyboard();
+ guess.focus();
+}
+
+function addLetter(letter){
+ if(gameOver || guess.value.length>=5)return;
+ guess.value+=letter;
+}
+
+function removeLetter(){
+ guess.value=guess.value.slice(0,-1);
+}
+
+document.addEventListener("keydown",e=>{
+ if(gameOver)return;
+ if(e.key==="Enter")submitGuess();
+ else if(e.key==="Backspace")removeLetter();
+ else if(/^[a-zA-Z]$/.test(e.key))addLetter(e.key.toUpperCase());
+});
+
+function submitGuess(){
+ if(gameOver)return;
+
+ const g=guess.value.toUpperCase();
+
+ if(g.length!==5){
+   message.textContent="⚠️ Enter exactly 5 letters.";
+   return;
+ }
+
+ const start=row*5;
+ let result=new Array(5).fill("wrong");
+ let remaining=answer.split("");
+
+ for(let i=0;i<5;i++){
+   if(g[i]===answer[i]){
+     result[i]="correct";
+     remaining[i]=null;
+   }
+ }
+
+ for(let i=0;i<5;i++){
+   if(result[i]==="correct")continue;
+   const index=remaining.indexOf(g[i]);
+   if(index!==-1){
+     result[i]="present";
+     remaining[index]=null;
+   }
+ }
+
+ for(let i=0;i<5;i++){
+   const tile=board.children[start+i];
+   tile.textContent=g[i];
+   tile.classList.add("pop",result[i]);
+   const key=document.getElementById("key-"+g[i]);
+
+   if(key){
+     if(result[i]==="correct")key.className="key correct";
+     else if(result[i]==="present" && !key.classList.contains("correct"))
+       key.className="key present";
+     else if(result[i]==="wrong" && !key.classList.contains("correct") && !key.classList.contains("present"))
+       key.className="key wrong";
+   }
+ }
+
+ if(g===answer){
+   message.textContent="🎉 AMAZING! You found the word!";
+   hint.textContent="🏆 Perfect game!";
+   gameOver=true;
+   return;
+ }
+
+ row++;
+ guess.value="";
+
+ if(row>=6){
+   message.textContent="😅 Game over!";
+   hint.textContent="The answer was: "+answer;
+   gameOver=true;
+ }else{
+   message.textContent=(6-row)+" attempts remaining.";
+ }
+}
+
+function giveHint(){
+ if(gameOver)return;
+
+ if(usedHint){
+   hint.textContent="💡 You've already used your free hint!";
+   return;
+ }
+
+ usedHint=true;
+
+ const vowels=[...new Set(answer.split("").filter(x=>"AEIOU".includes(x)))];
+
+ if(vowels.length){
+   hint.textContent="💡 Hint: The word contains the vowel "+vowels[0]+".";
+ }else{
+   hint.textContent="💡 Hint: This word contains no A, E, I, O or U.";
+ }
+}
+
+newGame();
+</script>
+</body>
+</html>
